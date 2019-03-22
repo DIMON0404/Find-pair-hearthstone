@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Zenject;
 
 public class Card : MonoBehaviour
 {
@@ -8,22 +9,25 @@ public class Card : MonoBehaviour
 
     public State state;
     public string ID;
-
-    [SerializeField]
+    public ParticleSystem greenParticles;
+    public Vector2Int positionInGrid;
+    
     private TableCardController cardController;
     [SerializeField]
     private Animator animator;
-    private bool allowAction = true;                // Action will allowe after each animation play
+    private bool allowAction = false;                // Action will allowe after each animation play
 
-    // Start is called before the first frame update
-    void Start()
+    private void Awake()
     {
-
+        ID = gameObject.name.Replace("(Clone)", "");
     }
 
-    public void Initialization(TableCardController tableCardController)
+    public void OnAddToScene(TableCardController tableCardController, Vector2Int position)
     {
         cardController = tableCardController;
+        allowAction = true;
+        greenParticles.Play();
+        positionInGrid = position;
     }
 
     // Update is called once per frame
@@ -34,15 +38,17 @@ public class Card : MonoBehaviour
 
     private void OnMouseDown()
     {
-        if (cardController.CanCardRotate)
+        if (allowAction && cardController.CanCardRotate)
         {
             switch (state)
             {
                 case State.Face:
                     Close();
+                    cardController.OnCardAction(this);
                     break;
                 case State.Back:
                     Open();
+                    cardController.OnCardAction(this);
                     break;
                 default:
                     SetAnimationTrigger("NotAllowed");
@@ -53,11 +59,13 @@ public class Card : MonoBehaviour
 
     public void Open()
     {
+        state = State.Face;
         SetAnimationTrigger("ToFace");
     }
 
     public void Close()
     {
+        state = State.Back;
         SetAnimationTrigger("ToBack");
     }
 
@@ -68,27 +76,22 @@ public class Card : MonoBehaviour
 
     private void SetAnimationTrigger(string trigger, bool lockAction = true)
     {
-        animator.SetTrigger(trigger);
-        allowAction &= !lockAction;
+        if (allowAction)
+        {
+            animator.SetTrigger(trigger);
+            allowAction &= !lockAction;
+        }
     }
 
-    public void OnAnimationEnd(State state)
+    public void OnAnimationEnd()
     {
-        switch (state)
-        {
-            case State.Face:
-                cardController.OnCardAction(this);
-                break;
-            case State.Back:
-                cardController.OnCardAction(this);
-                break;
-        }
         allowAction = true;
-        this.state = state;
     }
 
     public void OnGoOut()
     {
         animator.SetTrigger("Explosion");
+        allowAction = false;
+        greenParticles.Stop();
     }
 }
